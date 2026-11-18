@@ -1,0 +1,1431 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>數字連連看</title>
+<meta name="description" content="任何一張圖自動變成數字連連看：外框和裡面的線都能連，印成 A4 練習單，也能在平板上玩。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="連連看">
+<meta name="theme-color" content="#e5e9ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12171d" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f2b400'/%3E%3Cpolyline points='13,44 30,16 51,38' fill='none' stroke='%232b2100' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cg fill='%232b2100'%3E%3Ccircle cx='13' cy='44' r='5'/%3E%3Ccircle cx='30' cy='16' r='5'/%3E%3Ccircle cx='51' cy='38' r='5'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Huninn&display=swap">
+<style>
+/* Layout: 家長的書桌。左邊是選圖、調整、轉換流程；右邊是一張真的 A4 紙。窄螢幕上下疊。 */
+:root{
+  --desk:#e5e9ee; --panel:#f6f8fa; --rule:#cbd3dc; --fg:#1b222b; --muted:#566170;
+  --pencil:#f2b400; --pencil-ink:#2b2100; --good:#1f7a45; --warn:#b05a0c;
+  --paper:#ffffff; --ink:#141414;
+  --paper-shadow:0 1px 2px rgba(20,30,45,.14),0 10px 28px rgba(20,30,45,.12);
+  --f-display:"Huninn","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-num:"Nunito","Arial Rounded MT Bold","Arial",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --desk:#12171d; --panel:#1a2028; --rule:#2d3641; --fg:#e4e9ef; --muted:#9aa5b2;
+  --pencil:#f5c22b; --pencil-ink:#241b00; --good:#5cc68b; --warn:#eaa55c;
+  --paper:#f4f4f0; --ink:#141414;
+  --paper-shadow:0 1px 2px rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.45);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --desk:#12171d; --panel:#1a2028; --rule:#2d3641; --fg:#e4e9ef; --muted:#9aa5b2;
+  --pencil:#f5c22b; --pencil-ink:#241b00; --good:#5cc68b; --warn:#eaa55c;
+  --paper:#f4f4f0; --ink:#141414;
+  --paper-shadow:0 1px 2px rgba(0,0,0,.5),0 12px 32px rgba(0,0,0,.45);
+  color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+body{margin:0;background:var(--desk);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.masthead>div:first-child{flex:1 1 auto;min-width:0}
+.kicker a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
+.reload{appearance:none;border:1px solid var(--rule);background:var(--panel);color:var(--fg);border-radius:999px;width:44px;height:44px;font-size:20px;line-height:1;cursor:pointer;flex:none;align-self:flex-start}
+.printbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:14px}
+.printbtn{appearance:none;border:0;background:var(--pencil);color:var(--pencil-ink);border-radius:999px;padding:12px 22px;font:700 16px/1 var(--f-body);cursor:pointer;min-height:48px}
+#printArea{display:none}
+@page{size:A4;margin:0}
+@media print{
+  html,body{background:#fff!important;padding:0!important}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block}
+  .psheet{width:210mm;height:297mm;overflow:hidden;break-after:page;page-break-after:always}
+  .psheet:last-child{break-after:auto;page-break-after:auto}
+  .psheet .sheet-wrap{width:210mm}
+  .psheet .sheet{box-shadow:none;border-radius:0;background:#fff;height:297mm}
+}
+.page{max-width:1220px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.masthead{display:flex;align-items:flex-start;gap:14px 20px;margin-bottom:26px}
+.kicker{font:500 12px/1 var(--f-body);letter-spacing:.14em;color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(34px,5vw,48px);line-height:1.05;margin:0;letter-spacing:.05em;display:flex;align-items:center;gap:14px;text-wrap:balance}
+h1 svg{width:84px;height:auto;flex:none;color:var(--fg)}
+.lede{margin:12px 0 0;color:var(--muted);max-width:62ch;text-wrap:pretty}
+.work{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:28px;align-items:start}
+@media (max-width:1040px){.work{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:20px;display:grid;gap:28px;min-width:0}
+.step{display:grid;gap:12px;min-width:0}
+h2{font-family:var(--f-display);font-weight:400;font-size:20px;line-height:1.2;margin:0;display:flex;align-items:center;gap:10px}
+h2 .n{width:26px;height:26px;border-radius:50%;background:var(--pencil);color:var(--pencil-ink);display:inline-grid;place-items:center;font:700 14px/1 var(--f-num);flex:none}
+.pics{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px}
+.pic{appearance:none;border:2px solid var(--rule);background:var(--panel);border-radius:12px;padding:8px 6px 7px;display:grid;justify-items:center;gap:5px;cursor:pointer;color:var(--fg);font:500 13px/1.2 var(--f-body);position:relative;min-width:0}
+.pic canvas{width:64px;height:64px;border-radius:8px;background:#fff;display:block}
+.pic[aria-pressed="true"]{border-color:var(--pencil);background:color-mix(in srgb,var(--pencil) 14%,var(--panel))}
+.pic.upload{border-style:dashed;color:var(--muted)}
+.pic.upload input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upicon{width:64px;height:64px;border-radius:8px;display:grid;place-items:center;font-size:30px;line-height:1;background:var(--desk);color:var(--muted)}
+:focus-visible{outline:3px solid var(--pencil);outline-offset:2px}
+.pic.upload:focus-within{outline:3px solid var(--pencil);outline-offset:2px}
+.hint{margin:0;font-size:13px;line-height:1.55;color:var(--muted)}
+.field{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+.field label,.field .lab{font-weight:500}
+.field output{font:700 20px/1 var(--f-num);font-variant-numeric:tabular-nums}
+.field input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--pencil);margin:4px 0 0}
+.field .hint{grid-column:1/-1}
+.seg{grid-column:1/-1;display:inline-flex;flex-wrap:wrap;gap:4px;background:var(--desk);border-radius:10px;padding:4px;justify-self:start}
+.seg button{appearance:none;border:0;background:transparent;color:var(--muted);font:500 14px/1 var(--f-body);padding:9px 14px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:14px}
+.check input{accent-color:var(--pencil);margin-top:5px;flex:none}
+.pipe{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.pipe{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.pipe figure{margin:0;display:grid;gap:6px;align-content:start;min-width:0}
+.pipe canvas{width:100%;aspect-ratio:1;background:#fff;border-radius:10px;border:1px solid var(--rule);display:block}
+.pipe figcaption{font-size:12.5px;line-height:1.45;color:var(--muted)}
+.pipe figcaption b{color:var(--fg);font-weight:500;display:block}
+.checks{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.checks li{display:flex;gap:10px;align-items:baseline;font-size:14px;line-height:1.5}
+.checks li::before{content:"";flex:none;width:9px;height:9px;border-radius:50%;background:var(--good);transform:translateY(-1px)}
+.checks li.warn::before{background:var(--warn)}
+.checks li.info::before{background:var(--rule)}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.output{display:grid;gap:14px;min-width:0}
+.tabs{display:inline-flex;flex-wrap:wrap;background:var(--panel);border:1px solid var(--rule);border-radius:999px;padding:4px;gap:4px;justify-self:start}
+.tabs button{appearance:none;border:0;background:transparent;color:var(--muted);font:500 14px/1 var(--f-body);padding:9px 16px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--pencil);color:var(--pencil-ink)}
+.sheet-wrap{container-type:inline-size;width:100%}
+.sheet{background:var(--paper);color:var(--ink);aspect-ratio:210/297;box-shadow:var(--paper-shadow);padding:5.714cqw;display:flex;flex-direction:column;border-radius:2px;overflow:hidden}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-end;gap:2cqw}
+.sheet-title{font-family:var(--f-display);font-size:5.4cqw;line-height:1;letter-spacing:.08em}
+.sheet-title rt{font-family:var(--f-body);font-size:.3em;letter-spacing:0}
+.sheet-name{font-size:2.3cqw;white-space:nowrap;padding-bottom:.4cqw}
+.sheet-name rt{font-size:.5em}
+.sheet-name .line{display:inline-block;width:22cqw;border-bottom:.22cqw solid currentColor;margin-left:1cqw}
+.sheet-inst{font-size:2.15cqw;margin:2.2cqw 0 1cqw;color:#333}
+.sheet svg{width:100%;height:auto;display:block}
+.sheet-foot{margin-top:auto;font-size:1.5cqw;color:#8a8a8a}
+.lbl{font-family:var(--f-num)}
+.note{font-size:13px;color:var(--muted);margin:0}
+.tablet{background:#1d2127;border-radius:30px;padding:16px;box-shadow:var(--paper-shadow)}
+.screen{background:#fff;border-radius:14px;overflow:hidden;color:#141414}
+.playbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #e3e6ea;min-height:58px}
+.next{font:400 19px/1.2 var(--f-display)}
+.next b{font:700 30px/1 var(--f-num);margin-left:8px;vertical-align:-3px}
+.again{appearance:none;border:1px solid #d3d8de;background:#f4f5f7;color:#141414;border-radius:999px;padding:8px 14px;font:500 14px/1 var(--f-body);cursor:pointer;flex:none}
+#playSvg{width:100%;height:auto;display:block;touch-action:manipulation;cursor:pointer;user-select:none;-webkit-user-select:none}
+.pl-line{stroke:#141414;stroke-width:.7;stroke-linecap:round;fill:none;transition:stroke-dashoffset .28s ease-out}
+.pd .core{fill:#141414}
+.pd.on .core{fill:#a3aab3}
+.pd .halo{fill:#f2b400;opacity:0;transform-box:fill-box;transform-origin:center}
+.pd.hint .halo{animation:breathe 1.4s ease-in-out infinite}
+.pd .ring{fill:none;stroke:#d0452f;stroke-width:.45;opacity:0}
+.pd.cur .ring{opacity:1}
+.pd .wob{transform-box:fill-box;transform-origin:center}
+.pd .wob.shake{animation:shake .32s ease-in-out 2}
+.plbl{font-family:var(--f-num);fill:#141414;transition:opacity .4s}
+.plbl.on{opacity:.28}
+#pfill{transition:opacity .7s}
+@keyframes breathe{0%,100%{transform:scale(.7);opacity:.35}50%{transform:scale(1.3);opacity:.95}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-1.1px)}75%{transform:translateX(1.1px)}}
+@media (prefers-reduced-motion: reduce){.pd.hint .halo{animation:none;opacity:.8}.pd .wob.shake{animation:none}.pl-line{transition:none}}
+.notes{margin-top:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:28px}
+.notes h3{font-family:var(--f-display);font-weight:400;font-size:19px;margin:0 0 8px}
+.notes ul{margin:0;padding-left:1.2em;display:grid;gap:7px}
+.notes li{max-width:60ch}
+#selftest{white-space:pre-wrap;font:12px/1.4 ui-monospace,Consolas,monospace;background:var(--panel);border:1px solid var(--rule);padding:12px;margin:0 0 20px;overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <div>
+      <p class="kicker"><a href="../index.html">KIDZ.TW · 遊戲</a></p>
+      <h1>數字連連看
+        <svg viewBox="0 0 120 52" aria-hidden="true"><polyline points="12,36 56,12 102,32" fill="none" stroke="var(--pencil)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><g fill="currentColor"><circle cx="12" cy="36" r="3.4"/><circle cx="56" cy="12" r="3.4"/><circle cx="102" cy="32" r="3.4"/><text x="12" y="51" font-size="12" text-anchor="middle" font-family="Nunito,Arial,sans-serif">1</text><text x="56" y="28" font-size="12" text-anchor="middle" font-family="Nunito,Arial,sans-serif">2</text><text x="102" y="47" font-size="12" text-anchor="middle" font-family="Nunito,Arial,sans-serif">3</text></g></svg>
+      </h1>
+      <p class="lede">任何一張圖，程式都會自動找出外框和裡面的線、挑點、編號，排成一張 A4 練習單。圖只在這台裝置上計算，不會上傳；同一張圖每次做出來都一樣。</p>
+    </div>
+    <button type="button" class="reload" id="btnReload" title="重新載入（加到主畫面後沒有網址列可以重新整理）" aria-label="重新載入">↻</button>
+  </header>
+
+  <main class="work">
+    <section class="panel" aria-label="選圖與調整">
+      <div class="step">
+        <h2><span class="n">1</span>選一張圖</h2>
+        <div class="pics" id="pics"></div>
+        <p class="hint">也可以上傳自己的圖：線條清楚、背景是白色的最好，例如著色本的線稿、小孩用簽字筆畫的圖。「鉛筆畫」是程式模擬的手繪照片，示範光線不均、線斷一小段也轉得出來。</p>
+      </div>
+      <div class="step">
+        <h2><span class="n">2</span>調整</h2>
+        <div class="field">
+          <span class="lab" id="modeLab">要連的線</span>
+          <div class="seg" role="group" aria-labelledby="modeLab">
+            <button type="button" id="m-outer" aria-pressed="false">只有外框</button>
+            <button type="button" id="m-inner" aria-pressed="true">外框＋裡面的線</button>
+          </div>
+          <p class="hint">裡面的線夠長的會變成點；太短的（眼睛、鬍鬚）直接印好。每一條新的線從 ★ 開始。</p>
+        </div>
+        <div class="field">
+          <label for="n">要連幾個點</label><output id="nOut" for="n" class="num">50</output>
+          <input type="range" id="n" min="10" max="150" step="1" value="50">
+        </div>
+        <div class="field">
+          <label for="gap">補線條缺口</label><output id="gapOut" for="gap" class="num">3</output>
+          <input type="range" id="gap" min="0" max="8" step="1" value="3">
+          <p class="hint">手繪的外框沒接起來時調大。拿「鉛筆畫」拉到 0，就會看到缺口讓外框漏進圖裡面。</p>
+        </div>
+        <label class="check"><input type="checkbox" id="det" checked> 題目頁先印好不用連的線（眼睛、鬍鬚這些）</label>
+      </div>
+      <div class="step">
+        <h2><span class="n">3</span>程式做了什麼</h2>
+        <div class="pipe">
+          <figure><canvas id="p1" width="300" height="300"></canvas><figcaption><b>① 原圖</b><span id="c1"></span></figcaption></figure>
+          <figure><canvas id="p2" width="300" height="300"></canvas><figcaption><b>② 剪影和線條</b><span id="c2"></span></figcaption></figure>
+          <figure><canvas id="p3" width="300" height="300"></canvas><figcaption><b>③ 描線</b><span id="c3"></span></figcaption></figure>
+          <figure><canvas id="p4" width="300" height="300"></canvas><figcaption><b>④ 挑點、編號</b><span id="c4"></span></figcaption></figure>
+        </div>
+        <ul class="checks" id="checks" aria-live="polite"></ul>
+      </div>
+    </section>
+
+    <section class="output" aria-label="成品">
+      <div class="tabs" role="tablist" aria-label="看哪一種">
+        <button type="button" role="tab" id="t-puzzle" aria-selected="true" aria-controls="panel-sheet">題目頁</button>
+        <button type="button" role="tab" id="t-answer" aria-selected="false" aria-controls="panel-sheet">答案頁</button>
+        <button type="button" role="tab" id="t-play" aria-selected="false" aria-controls="panel-play">平板試玩</button>
+      </div>
+      <div id="panel-sheet" role="tabpanel" aria-labelledby="t-puzzle">
+        <div class="sheet-wrap">
+          <div class="sheet" id="sheet">
+            <div class="sheet-head">
+              <div class="sheet-title" id="sheetTitle"></div>
+              <div class="sheet-name"><ruby>名<rt>ㄇㄧㄥˊ</rt></ruby><ruby>字<rt>˙ㄗ</rt></ruby><span class="line"></span></div>
+            </div>
+            <p class="sheet-inst" id="sheetInst"></p>
+            <svg id="sheetSvg" viewBox="0 0 186 232" role="img" aria-label="連連看圖"></svg>
+            <div class="sheet-foot" id="sheetFoot"></div>
+          </div>
+        </div>
+        <div class="printbar">
+          <button type="button" class="printbtn" id="btnPrint">印出來</button>
+          <label class="check"><input type="checkbox" id="withAns" checked> 附答案頁</label>
+          <p class="note">A4 直印。印表機設定選「實際大小」或縮放 100%。</p>
+        </div>
+      </div>
+      <div id="panel-play" role="tabpanel" aria-labelledby="t-play" hidden>
+        <div class="tablet">
+          <div class="screen">
+            <div class="playbar"><div class="next" id="playStatus"></div><button type="button" class="again" id="again">重來</button></div>
+            <svg id="playSvg" viewBox="0 0 186 232" role="img" aria-label="點數字來連線"></svg>
+          </div>
+        </div>
+        <p class="note" style="margin-top:12px">點數字或圓點都算。點錯的會晃一下、不扣分；連錯兩次或停 7 秒，下一個點會開始呼吸。★ 是新的一條線：從那裡開始，不會跟上一點連起來。</p>
+      </div>
+    </section>
+  </main>
+
+  <section class="notes">
+    <div>
+      <h3>怎麼玩</h3>
+      <ul>
+        <li>從 1 開始，照數字順序把點連起來，連完就會出現一張圖。</li>
+        <li>數字前面有 ★ 的，是新的一條線：筆先提起來，從 ★ 那一點重新開始。</li>
+        <li>同一個點旁邊有兩個數字時，兩個數字都在這一點。例如窗戶連一圈，最後一個數字就在起點，連過去剛好繞回來。</li>
+      </ul>
+    </div>
+    <div>
+      <h3>給大人</h3>
+      <ul>
+        <li>點數拉越少越簡單：太短的線會直接印好，不用連。一年級建議 30 點左右、先用「只有外框」。</li>
+        <li>上傳的圖只在這台裝置上計算，不會傳到任何地方。線條清楚、背景乾淨的圖效果最好；很小的圖（例如 200 像素以下）細節會糊掉。</li>
+        <li>左邊第 3 步的檢查項目如果出現橘色，表示有數字擠在一起，可以把點數調少一點。</li>
+      </ul>
+    </div>
+  </section>
+</div>
+<div id="printArea" aria-hidden="true"></div>
+
+<script>
+(() => {
+'use strict';
+const PAD = 14, WORK = 400;
+const AW = 186, AH = 232, MARGIN = 9, DOT_R = 0.85, INK = '#141414';
+const $ = (id) => document.getElementById(id);
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const ctx2d = (c) => c.getContext('2d', { willReadFrequently: true });
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const triArea = (a, b, c) => Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1])) / 2;
+function segDist(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+  let t = l2 ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+}
+
+// ---------- 內建原創圖（400×400 座標）：外形 + 裡面的線 ----------
+const poly = (c, p) => { c.beginPath(); c.moveTo(p[0][0], p[0][1]); for (let i = 1; i < p.length; i++) c.lineTo(p[i][0], p[i][1]); c.closePath(); c.fill(); };
+const ell = (c, x, y, rx, ry, rot = 0) => { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); c.fill(); };
+const SAMPLES = [
+  { id: 'cat', name: '貓咪',
+    draw(c) {
+      ell(c, 200, 135, 72, 72);
+      poly(c, [[136, 104], [140, 26], [190, 70]]);
+      poly(c, [[264, 104], [260, 26], [210, 70]]);
+      ell(c, 200, 285, 92, 98);
+      c.lineWidth = 24; c.lineCap = 'round';
+      c.beginPath(); c.moveTo(268, 352); c.quadraticCurveTo(372, 352, 352, 232); c.stroke();
+      ell(c, 158, 378, 34, 16); ell(c, 242, 378, 34, 16);
+    },
+    details: [['dot', 172, 128, 9], ['dot', 228, 128, 9], ['dot', 200, 154, 6],
+      ['line', 'M200 160Q200 174 186 175M200 160Q200 174 214 175'],
+      ['line', 'M160 156L134 150M160 164L135 171M240 156L266 150M240 164L265 171'],
+      ['line', 'M150 96L152 52L178 76M250 96L248 52L222 76'],
+      ['line', 'M168 300Q162 340 168 368M232 300Q238 340 232 368']] },
+  { id: 'fish', name: '小魚',
+    draw(c) {
+      ell(c, 175, 200, 125, 72);
+      poly(c, [[272, 200], [372, 128], [345, 200], [372, 272]]);
+      poly(c, [[120, 140], [190, 82], [235, 138]]);
+      poly(c, [[165, 262], [195, 305], [220, 262]]);
+    },
+    details: [['dot', 95, 186, 10], ['line', 'M138 150Q160 200 138 250'], ['line', 'M58 214Q68 218 78 211'],
+      ['line', 'M185 165Q202 182 185 199M220 165Q237 182 220 199M185 205Q202 222 185 239M220 205Q237 222 220 239'],
+      ['line', 'M300 190L352 160M300 210L352 240']] },
+  { id: 'rocket', name: '火箭',
+    draw(c) {
+      c.fill(new Path2D('M200 26C248 70 262 150 258 300L142 300C138 150 152 70 200 26Z'));
+      poly(c, [[150, 205], [92, 290], [96, 345], [146, 305]]);
+      poly(c, [[250, 205], [308, 290], [304, 345], [254, 305]]);
+      poly(c, [[170, 298], [230, 298], [240, 336], [160, 336]]);
+    },
+    details: [['ring', 200, 140, 30], ['ring', 200, 140, 16], ['line', 'M150 240L250 240'], ['line', 'M168 85Q200 75 232 85'], ['line', 'M165 318L235 318']] },
+  { id: 'rabbit', name: '兔子',
+    draw(c) {
+      ell(c, 166, 74, 22, 62, -0.2); ell(c, 234, 74, 22, 62, 0.2);
+      ell(c, 200, 178, 62, 62);
+      ell(c, 200, 300, 86, 78);
+      ell(c, 146, 372, 36, 16); ell(c, 254, 372, 36, 16);
+    },
+    details: [['ellipse', 166, 82, 9, 38, -0.2], ['ellipse', 234, 82, 9, 38, 0.2], ['dot', 178, 170, 8], ['dot', 222, 170, 8],
+      ['dot', 200, 192, 6], ['line', 'M200 198Q200 210 189 212M200 198Q200 210 211 212'],
+      ['line', 'M160 252Q180 288 162 322M240 252Q220 288 238 322'], ['ring', 200, 318, 32]] },
+  { id: 'house', name: '房子', outline: true,
+    draw(c) {
+      c.lineWidth = 6; c.lineJoin = 'round'; c.lineCap = 'round';
+      const S = (d) => c.stroke(new Path2D(d));
+      S('M58 206L200 72L248 117L248 90L284 90L284 151L342 206Z');
+      S('M92 206L92 372L308 372L308 206');
+    },
+    details: [['line', 'M178 369L178 292L222 292L222 369'], ['dot', 204, 334, 4],
+      ['line', 'M238 236L288 236L288 286L238 286ZM263 236L263 286M238 261L288 261'],
+      ['line', 'M112 236L162 236L162 286L112 286ZM137 236L137 286M112 261L162 261'],
+      ['ring', 200, 160, 20]] },
+  { id: 'turtle', name: '烏龜',
+    draw(c) {
+      c.beginPath(); c.ellipse(190, 248, 122, 104, 0, Math.PI, Math.PI * 2); c.closePath(); c.fill();
+      c.fillRect(62, 238, 256, 24);
+      ell(c, 120, 284, 24, 30); ell(c, 258, 284, 24, 30);
+      ell(c, 350, 214, 34, 34);
+      poly(c, [[296, 232], [328, 200], [346, 240], [308, 258]]);
+      poly(c, [[68, 246], [26, 262], [70, 260]]);
+    },
+    details: [['dot', 360, 204, 7], ['line', 'M346 226Q360 236 374 224'], ['line', 'M72 242L310 242'],
+      ['line', 'M150 238L164 192L216 192L230 238M164 192L132 166M216 192L248 166M190 192L190 152']] },
+];
+const PHOTO = { id: 'photo', name: '鉛筆畫', photo: true };
+const ALL = SAMPLES.concat([PHOTO]);
+
+function silhouetteCanvas(smp) {
+  const cv = mk(WORK + 2 * PAD, WORK + 2 * PAD), c = ctx2d(cv);
+  c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+  c.translate(PAD, PAD); c.fillStyle = '#000'; c.strokeStyle = '#000';
+  smp.draw(c);
+  return cv;
+}
+function drawDetails(c, smp, lw) {
+  c.save(); c.translate(PAD, PAD);
+  c.lineWidth = lw; c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#000'; c.fillStyle = '#000';
+  for (const d of smp.details || []) {
+    if (d[0] === 'dot') { c.beginPath(); c.arc(d[1], d[2], d[3], 0, Math.PI * 2); c.fill(); }
+    else if (d[0] === 'line') c.stroke(new Path2D(d[1]));
+    else if (d[0] === 'ring') { c.beginPath(); c.arc(d[1], d[2], d[3], 0, Math.PI * 2); c.stroke(); }
+    else if (d[0] === 'ellipse') { c.beginPath(); c.ellipse(d[1], d[2], d[3], d[4], d[5], 0, Math.PI * 2); c.stroke(); }
+  }
+  c.restore();
+}
+// 內建圖畫成線稿：外形的邊描成 5px 的線，再畫上裡面的線
+function lineArtCanvas(smp) {
+  if (smp.outline) { const cv = silhouetteCanvas(smp), c = ctx2d(cv); c.setTransform(1, 0, 0, 1, 0, 0); drawDetails(c, smp, 5); return cv; }
+  const sil = silhouetteCanvas(smp), W = sil.width, H = sil.height;
+  const src = ctx2d(sil).getImageData(0, 0, W, H).data;
+  const m = new Uint8Array(W * H);
+  for (let i = 0; i < m.length; i++) m[i] = src[i * 4] < 128 ? 1 : 0;
+  const edge = new Uint8Array(W * H);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x;
+    if (m[i] && (!m[i - 1] || !m[i + 1] || !m[i - W] || !m[i + W])) edge[i] = 1;
+  }
+  const thick = morph(edge, W, H, 2, true);
+  const cv = mk(W, H), c = ctx2d(cv), img = c.createImageData(W, H), d = img.data;
+  for (let i = 0, j = 0; i < W * H; i++, j += 4) { const v = thick[i] ? 0 : 255; d[j] = d[j + 1] = d[j + 2] = v; d[j + 3] = 255; }
+  c.putImageData(img, 0, 0);
+  drawDetails(c, smp, 5);
+  return cv;
+}
+
+// 模擬一張手機拍的鉛筆畫：光線一邊暗一邊亮、紙有雜訊、頭頂的線斷了一小段
+function makePhoto() {
+  const base = lineArtCanvas(SAMPLES[0]), W = base.width, H = base.height;
+  const src = ctx2d(base).getImageData(0, 0, W, H).data;
+  const out = mk(W, H), oc = ctx2d(out), img = oc.createImageData(W, H), d = img.data;
+  let seed = 20261024;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const gx = PAD + 200, gy = PAD + 63;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    let v = 172 + 60 * (0.6 * x / W + 0.4 * y / H) + (rnd() - 0.5) * 14;
+    const inGap = Math.abs(x - gx) <= 2 && y < gy + 14;
+    if (src[i * 4] < 128 && !inGap) v = 70 + rnd() * 34;
+    d[i * 4] = v; d[i * 4 + 1] = v * 0.99; d[i * 4 + 2] = v * 0.95; d[i * 4 + 3] = 255;
+  }
+  oc.putImageData(img, 0, 0);
+  return out;
+}
+
+// 任何圖（上傳的、模擬照片）→ 縮放到 400 內、四周補一圈跟原圖邊緣同色的底
+function canvasFromImage(el) {
+  const w0 = el.naturalWidth || el.width, h0 = el.naturalHeight || el.height;
+  const sc = WORK / Math.max(w0, h0);
+  const w = Math.max(1, Math.round(w0 * sc)), h = Math.max(1, Math.round(h0 * sc));
+  const t = mk(w, h), tc = ctx2d(t);
+  tc.imageSmoothingQuality = 'high';
+  tc.fillStyle = '#fff'; tc.fillRect(0, 0, w, h); tc.drawImage(el, 0, 0, w, h);
+  const d = tc.getImageData(0, 0, w, h).data;
+  let r = 0, g = 0, b = 0, n = 0;
+  const add = (x, y) => { const j = (y * w + x) * 4; r += d[j]; g += d[j + 1]; b += d[j + 2]; n++; };
+  for (let x = 0; x < w; x++) { add(x, 0); add(x, h - 1); }
+  for (let y = 0; y < h; y++) { add(0, y); add(w - 1, y); }
+  const cv = mk(w + 2 * PAD, h + 2 * PAD), c = ctx2d(cv);
+  c.fillStyle = `rgb(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)})`;
+  c.fillRect(0, 0, cv.width, cv.height);
+  c.drawImage(t, PAD, PAD);
+  return cv;
+}
+
+// ---------- 影像工具 ----------
+function integral(A, w, h) {
+  const W1 = w + 1, I = new Float64Array(W1 * (h + 1));
+  for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += A[y * w + x]; I[(y + 1) * W1 + x + 1] = I[y * W1 + x + 1] + row; } }
+  return (x0, y0, x1, y1) => (I[(y1 + 1) * W1 + x1 + 1] - I[y0 * W1 + x1 + 1] - I[(y1 + 1) * W1 + x0] + I[y0 * W1 + x0]) / ((x1 - x0 + 1) * (y1 - y0 + 1));
+}
+function borderMean(A, w, h) {
+  let s = 0, n = 0;
+  for (let x = 0; x < w; x++) { s += A[x] + A[(h - 1) * w + x]; n += 2; }
+  for (let y = 0; y < h; y++) { s += A[y * w] + A[y * w + w - 1]; n += 2; }
+  return s / n;
+}
+function morph(src, w, h, r, dilate) {
+  const tmp = new Uint8Array(w * h), out = new Uint8Array(w * h), P = new Int32Array(Math.max(w, h) + 1);
+  for (let y = 0; y < h; y++) {
+    P[0] = 0; for (let x = 0; x < w; x++) P[x + 1] = P[x] + src[y * w + x];
+    for (let x = 0; x < w; x++) { const a = Math.max(0, x - r), b = Math.min(w - 1, x + r), s = P[b + 1] - P[a]; tmp[y * w + x] = dilate ? (s > 0 ? 1 : 0) : (s === b - a + 1 ? 1 : 0); }
+  }
+  for (let x = 0; x < w; x++) {
+    P[0] = 0; for (let y = 0; y < h; y++) P[y + 1] = P[y] + tmp[y * w + x];
+    for (let y = 0; y < h; y++) { const a = Math.max(0, y - r), b = Math.min(h - 1, y + r), s = P[b + 1] - P[a]; out[y * w + x] = dilate ? (s > 0 ? 1 : 0) : (s === b - a + 1 ? 1 : 0); }
+  }
+  return out;
+}
+// 距離轉換：每個 m=1 的像素離最近的 m=0 有多遠（像素）
+function distT(m, w, h) {
+  const d = new Float32Array(w * h), B = Math.SQRT2;
+  for (let i = 0; i < d.length; i++) d[i] = m[i] ? 1e9 : 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x; if (!d[i]) continue; let v = d[i];
+    if (x > 0) v = Math.min(v, d[i - 1] + 1);
+    if (y > 0) { v = Math.min(v, d[i - w] + 1); if (x > 0) v = Math.min(v, d[i - w - 1] + B); if (x < w - 1) v = Math.min(v, d[i - w + 1] + B); }
+    d[i] = v;
+  }
+  for (let y = h - 1; y >= 0; y--) for (let x = w - 1; x >= 0; x--) {
+    const i = y * w + x; if (!d[i]) continue; let v = d[i];
+    if (x < w - 1) v = Math.min(v, d[i + 1] + 1);
+    if (y < h - 1) { v = Math.min(v, d[i + w] + 1); if (x < w - 1) v = Math.min(v, d[i + w + 1] + B); if (x > 0) v = Math.min(v, d[i + w - 1] + B); }
+    d[i] = v;
+  }
+  return d;
+}
+function fillOutside(m, w, h) {
+  const out = new Uint8Array(w * h), st = new Int32Array(w * h); let sp = 0;
+  const push = (i) => { if (!m[i] && !out[i]) { out[i] = 1; st[sp++] = i; } };
+  for (let x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+  while (sp) {
+    const i = st[--sp], x = i % w;
+    if (x > 0) push(i - 1); if (x < w - 1) push(i + 1);
+    if (i >= w) push(i - w); if (i < w * (h - 1)) push(i + w);
+  }
+  const shape = new Uint8Array(w * h);
+  for (let i = 0; i < shape.length; i++) shape[i] = out[i] ? 0 : 1;
+  return shape;
+}
+function components(m, w, h) {
+  const lab = new Int32Array(w * h), st = new Int32Array(w * h), sizes = [0];
+  let id = 0;
+  for (let s = 0; s < m.length; s++) {
+    if (!m[s] || lab[s]) continue;
+    id++; let sp = 0, size = 0; lab[s] = id; st[sp++] = s;
+    while (sp) {
+      const i = st[--sp], x = i % w; size++;
+      if (x > 0 && m[i - 1] && !lab[i - 1]) { lab[i - 1] = id; st[sp++] = i - 1; }
+      if (x < w - 1 && m[i + 1] && !lab[i + 1]) { lab[i + 1] = id; st[sp++] = i + 1; }
+      if (i >= w && m[i - w] && !lab[i - w]) { lab[i - w] = id; st[sp++] = i - w; }
+      if (i < w * (h - 1) && m[i + w] && !lab[i + w]) { lab[i + w] = id; st[sp++] = i + w; }
+    }
+    sizes.push(size);
+  }
+  return { lab, sizes };
+}
+// marching squares：沿著外框走一圈（圖形永遠在左手邊）
+function trace(m, w, h) {
+  const at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && m[y * w + x] === 1;
+  let s = -1; for (let i = 0; i < m.length; i++) if (m[i]) { s = i; break; }
+  if (s < 0) return [];
+  const sx = s % w, sy = (s / w) | 0;
+  let x = sx, y = sy, prev = 0, guard = 0; const pts = [];
+  do {
+    let st = 0;
+    if (at(x - 1, y - 1)) st |= 1; if (at(x, y - 1)) st |= 2; if (at(x - 1, y)) st |= 4; if (at(x, y)) st |= 8;
+    let nx;
+    switch (st) {
+      case 1: case 5: case 13: nx = 1; break;
+      case 2: case 3: case 7: nx = 2; break;
+      case 8: case 10: case 11: nx = 3; break;
+      case 4: case 12: case 14: nx = 4; break;
+      case 6: nx = prev === 1 ? 4 : 2; break;
+      case 9: nx = prev === 2 ? 1 : 3; break;
+      default: return pts;
+    }
+    pts.push([x, y]);
+    if (nx === 1) y--; else if (nx === 3) y++; else if (nx === 2) x++; else x--;
+    prev = nx;
+  } while ((x !== sx || y !== sy) && ++guard < 400000);
+  return pts;
+}
+function smoothPath(P, k, passes, closed) {
+  let A = P;
+  for (let p = 0; p < passes; p++) {
+    const n = A.length, B = new Array(n);
+    for (let i = 0; i < n; i++) {
+      if (!closed && (i === 0 || i === n - 1)) { B[i] = A[i]; continue; }
+      let sx = 0, sy = 0, c = 0;
+      for (let j = -k; j <= k; j++) {
+        let q = i + j;
+        if (closed) q = (q + n) % n; else if (q < 0 || q >= n) continue;
+        sx += A[q][0]; sy += A[q][1]; c++;
+      }
+      B[i] = [sx / c, sy / c];
+    }
+    A = B;
+  }
+  return A;
+}
+// Zhang-Suen 細化：把有粗細的線削成 1 像素寬的中心線
+function thin(src, w, h) {
+  const m = src.slice(), del = [];
+  let x0 = w, y0 = h, x1 = 0, y1 = 0;
+  for (let i = 0; i < m.length; i++) if (m[i]) { const x = i % w, y = (i / w) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  x0 = Math.max(1, x0); y0 = Math.max(1, y0); x1 = Math.min(w - 2, x1); y1 = Math.min(h - 2, y1);
+  for (let changed = true, guard = 0; changed && guard < 200; guard++) {
+    changed = false;
+    for (let pass = 0; pass < 2; pass++) {
+      del.length = 0;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const i = y * w + x; if (!m[i]) continue;
+        const p2 = m[i - w], p3 = m[i - w + 1], p4 = m[i + 1], p5 = m[i + w + 1], p6 = m[i + w], p7 = m[i + w - 1], p8 = m[i - 1], p9 = m[i - w - 1];
+        const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9; if (B < 2 || B > 6) continue;
+        const A = (!p2 && p3) + (!p3 && p4) + (!p4 && p5) + (!p5 && p6) + (!p6 && p7) + (!p7 && p8) + (!p8 && p9) + (!p9 && p2);
+        if (A !== 1) continue;
+        if (pass === 0 ? (p2 && p4 && p6) || (p4 && p6 && p8) : (p2 && p4 && p8) || (p2 && p6 && p8)) continue;
+        del.push(i);
+      }
+      for (const i of del) m[i] = 0;
+      if (del.length) changed = true;
+    }
+  }
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {   // 樓梯角多出來的像素
+    const i = y * w + x; if (!m[i]) continue;
+    const N = m[i - w], E = m[i + 1], S = m[i + w], W = m[i - 1];
+    if ((N && E && !S && !W && !m[i + w - 1]) || (E && S && !N && !W && !m[i - w - 1]) ||
+        (S && W && !N && !E && !m[i - w + 1]) || (W && N && !S && !E && !m[i + w + 1])) m[i] = 0;
+  }
+  return m;
+}
+// 中心線 → 一條一條的筆畫。交叉點兩邊最順的接在一起（像人畫的時候會一筆畫過去）
+function strokesFromSkeleton(S, w, h, spurLen) {
+  const off = [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1];
+  const list = []; for (let i = 0; i < S.length; i++) if (S[i]) list.push(i);
+  const deg = new Uint8Array(w * h);
+  for (const i of list) { let c = 0; for (const o of off) if (S[i + o]) c++; deg[i] = c; }
+  const nid = new Int32Array(w * h).fill(-1), nodes = [];
+  for (const i of list) {
+    if (deg[i] === 2 || nid[i] >= 0) continue;
+    const pix = [i], id = nodes.length; nid[i] = id;
+    for (let k = 0; k < pix.length; k++) for (const o of off) { const j = pix[k] + o; if (S[j] && deg[j] !== 2 && nid[j] < 0) { nid[j] = id; pix.push(j); } }
+    let sx = 0, sy = 0; for (const p of pix) { sx += p % w; sy += (p / w) | 0; }
+    nodes.push({ pix, x: sx / pix.length, y: sy / pix.length });
+  }
+  const P = (i) => [i % w, (i / w) | 0];
+  const vis = new Uint8Array(w * h), edges = [];
+  for (let n = 0; n < nodes.length; n++) for (const q of nodes[n].pix) for (const o of off) {
+    const first = q + o; if (!S[first] || nid[first] >= 0 || vis[first]) continue;
+    const path = [P(q)]; let prev = q, cur = first, end = -1;
+    for (let guard = 0; guard < 200000; guard++) {
+      vis[cur] = 1; path.push(P(cur));
+      let next = -1, hitNode = -1;
+      for (const o2 of off) {
+        const j = cur + o2; if (j === prev || !S[j]) continue;
+        if (nid[j] >= 0) { if (nid[j] !== n || path.length > 2) { hitNode = j; break; } }
+        else if (!vis[j]) next = j;
+      }
+      if (hitNode >= 0) { end = nid[hitNode]; path.push(P(hitNode)); break; }
+      if (next < 0) break;
+      prev = cur; cur = next;
+    }
+    edges.push({ a: n, b: end, pts: path });
+  }
+  for (const i of list) {                       // 沒有交叉點的封閉圈（例如一個圓）
+    if (nid[i] >= 0 || vis[i]) continue;
+    const path = []; let prev = -1, cur = i;
+    for (let guard = 0; guard < 200000; guard++) {
+      vis[cur] = 1; path.push(P(cur));
+      let next = -1;
+      for (const o of off) { const j = cur + o; if (j !== prev && S[j] && !vis[j] && nid[j] < 0) { next = j; break; } }
+      if (next < 0) break;
+      prev = cur; cur = next;
+    }
+    if (path.length > 6) edges.push({ a: -1, b: -1, pts: path, loop: true });
+  }
+  // 修剪毛邊：從交叉點冒出來的一小截
+  const incCount = new Array(nodes.length).fill(0);
+  const alive = edges.map(() => true);
+  const recount = () => { incCount.fill(0); edges.forEach((e, k) => { if (!alive[k]) return; if (e.a >= 0) incCount[e.a]++; if (e.b >= 0) incCount[e.b]++; }); };
+  for (let round = 0; round < 3; round++) {
+    recount();
+    edges.forEach((e, k) => {
+      if (!alive[k] || e.loop || e.pts.length >= spurLen) return;
+      const aFree = e.a < 0 || incCount[e.a] === 1, bFree = e.b < 0 || incCount[e.b] === 1;
+      if ((aFree && (e.b < 0 || incCount[e.b] >= 3)) || (bFree && (e.a < 0 || incCount[e.a] >= 3)) || (aFree && bFree)) alive[k] = false;
+    });
+  }
+  recount();
+  const E = edges.filter((_, k) => alive[k]);
+  const inc = nodes.map(() => []);
+  E.forEach((e, k) => { if (e.loop) return; if (e.a >= 0) inc[e.a].push({ e: k, side: 0 }); if (e.b >= 0) inc[e.b].push({ e: k, side: 1 }); });
+  const dirOf = (k, side) => {
+    const p = E[k].pts, n = p.length, s = Math.min(10, n - 1);
+    const a = side === 0 ? p[0] : p[n - 1], b = side === 0 ? p[s] : p[n - 1 - s];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
+  };
+  const partner = new Map(), key = (k, side) => k * 2 + side;
+  for (const l of inc) {
+    if (l.length === 2) { partner.set(key(l[0].e, l[0].side), key(l[1].e, l[1].side)); partner.set(key(l[1].e, l[1].side), key(l[0].e, l[0].side)); continue; }
+    if (l.length < 3) continue;
+    const pairs = [];
+    for (let i = 0; i < l.length; i++) for (let j = i + 1; j < l.length; j++) {
+      const u = dirOf(l[i].e, l[i].side), v = dirOf(l[j].e, l[j].side);
+      pairs.push([u[0] * v[0] + u[1] * v[1], i, j]);
+    }
+    pairs.sort((p, q) => p[0] - q[0]);
+    const taken = new Set();
+    for (const [sc, i, j] of pairs) {
+      if (sc > -0.5 || taken.has(i) || taken.has(j)) continue;
+      taken.add(i); taken.add(j);
+      partner.set(key(l[i].e, l[i].side), key(l[j].e, l[j].side));
+      partner.set(key(l[j].e, l[j].side), key(l[i].e, l[i].side));
+    }
+  }
+  const used = new Uint8Array(E.length), strokes = [];
+  const chain = (k0, side0) => {
+    let k = k0, side = side0, closed = false; const pts = [];
+    for (let guard = 0; guard < 10000; guard++) {
+      used[k] = 1;
+      let seg = side === 0 ? E[k].pts : E[k].pts.slice().reverse();
+      if (pts.length) seg = seg.slice(1);
+      for (const p of seg) pts.push(p);
+      const pk = partner.get(key(k, 1 - side));
+      if (pk === undefined) break;
+      const pe = pk >> 1, ps = pk & 1;
+      if (pe === k0 && ps === side0) { closed = true; break; }
+      if (used[pe]) break;
+      k = pe; side = ps;
+    }
+    if (closed && pts.length > 2 && dist(pts[0], pts[pts.length - 1]) < 2) pts.pop();
+    return { pts, closed };
+  };
+  E.forEach((e, k) => { if (e.loop) { used[k] = 1; strokes.push({ pts: e.pts, closed: true }); } });
+  E.forEach((e, k) => { for (const side of [0, 1]) if (!used[k] && !partner.has(key(k, side))) strokes.push(chain(k, side)); });
+  E.forEach((e, k) => { if (!used[k]) strokes.push(chain(k, 0)); });
+  return strokes;
+}
+
+// ---------- 分析：圖 → 外框 + 裡面的線 ----------
+function binarize(L, w, h) {
+  if (borderMean(L, w, h) < 110) for (let i = 0; i < L.length; i++) L[i] = 255 - L[i];
+  const hist = new Float64Array(256); let sumAll = 0;
+  for (let i = 0; i < L.length; i++) { const v = Math.max(0, Math.min(255, L[i] | 0)); hist[v]++; sumAll += v; }
+  const total = L.length; let wB = 0, sumB = 0, best = -1, T = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t]; if (!wB) continue;
+    const wF = total - wB; if (!wF) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sumAll - sumB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+    if (v > best) { best = v; T = t; }
+  }
+  const darkT = Math.min(T, 110), mean = integral(L, w, h);
+  const R = Math.max(5, Math.round(Math.max(w, h) / 20)), C = 16, fg = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - R), y1 = Math.min(h - 1, y + R);
+    for (let x = 0; x < w; x++) {
+      const v = L[y * w + x];
+      fg[y * w + x] = (v < mean(Math.max(0, x - R), y0, Math.min(w - 1, x + R), y1) - C || v < darkT) ? 1 : 0;
+    }
+  }
+  return fg;
+}
+function halfWidth(m, w, h, dflt) {
+  const dt = distT(m, w, h), ridge = [];
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x, v = dt[i]; if (!v) continue;
+    if (v >= dt[i - 1] && v >= dt[i + 1] && v >= dt[i - w] && v >= dt[i + w]) ridge.push(v);
+  }
+  ridge.sort((a, b) => a - b);
+  return { dt, h: ridge.length > 20 ? ridge[ridge.length >> 1] : dflt };
+}
+function innerLines(rgba, V, w, h, comp, silArea) {
+  if (borderMean(V, w, h) < 110) for (let i = 0; i < V.length; i++) V[i] = 255 - V[i];
+  // 墨線＝比附近的紙暗很多、而且不是鮮豔的顏色（看 RGB 裡最亮的那個值，藍色紅色都很亮）
+  const mean = integral(V, w, h), R = Math.max(6, Math.round(Math.max(w, h) / 30));
+  const ink = new Uint8Array(w * h), edge = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - R), y1 = Math.min(h - 1, y + R);
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x; if (!comp[i]) continue;
+      const v = V[i];
+      ink[i] = (v < 70 || v < 0.62 * mean(Math.max(0, x - R), y0, Math.min(w - 1, x + R), y1)) ? 1 : 0;
+    }
+  }
+  // 顏色交界也算線（卡通圖常常只有色塊、黑線很淡）：左右或上下隔 4 像素的顏色差很多
+  const cd = (i, j) => { const a = i * 4, b = j * 4, dr = rgba[a] - rgba[b], dg = rgba[a + 1] - rgba[b + 1], db = rgba[a + 2] - rgba[b + 2]; return Math.sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db) / 3; };
+  // 很細很淡的線：兩邊都比它亮（只看顏色差會直接跳過比 4 像素還細的線）
+  const lum = (i) => 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+  const dirs = [2, 2 * w, 2 * w + 2, 2 * w - 2];
+  for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
+    const i = y * w + x; if (!comp[i]) continue;
+    if (Math.max(cd(i - 2, i + 2), cd(i - 2 * w, i + 2 * w)) > 45) { edge[i] = 1; continue; }
+    const l = lum(i);
+    for (const k of dirs) if (Math.min(lum(i - k), lum(i + k)) - l > 28) { edge[i] = 1; break; }
+  }
+  const hInk = Math.max(1, Math.min(5, halfWidth(ink, w, h, 2).h));
+  // 塗滿的一塊（眼珠、實心剪影）跟線分開：比一般的墨線粗很多的地方
+  const inkDT = distT(ink, w, h), thickT = Math.max(hInk + 2.5, 1.8 * hInk);
+  const notCore = new Uint8Array(w * h);
+  let anyCore = false;
+  for (let i = 0; i < notCore.length; i++) { const c = inkDT[i] >= thickT; notCore[i] = c ? 0 : 1; if (c) anyCore = true; }
+  const blob = new Uint8Array(w * h);
+  if (anyCore) { const dc = distT(notCore, w, h); for (let i = 0; i < blob.length; i++) blob[i] = ink[i] && dc[i] <= thickT + 1.5 ? 1 : 0; }
+  const band = new Uint8Array(w * h);
+  for (let i = 0; i < band.length; i++) band[i] = ink[i] || edge[i] ? 1 : 0;
+  const hEff = Math.max(1, Math.min(6, halfWidth(band, w, h, 2).h));
+  const blobBig = morph(blob, w, h, Math.ceil(hEff) + 1, true);
+  const lines = new Uint8Array(w * h);
+  for (let i = 0; i < lines.length; i++) lines[i] = band[i] && !blobBig[i] ? 1 : 0;
+  const sk = thin(lines, w, h);
+  const silDT = distT(comp, w, h);
+  for (let i = 0; i < sk.length; i++) if (sk[i] && silDT[i] < hEff + 2.5) sk[i] = 0;   // 外框本身那條線不算
+  const raw = strokesFromSkeleton(sk, w, h, 2 * hEff + 5);
+  const minLen = 3 * hEff + 8, strokes = [];
+  const cornerEps = Math.max(CORNER_EPS, Math.min(4, 0.9 * hEff));   // 線越粗，交叉點附近的歪斜越大
+  for (const r of raw) {
+    if (r.pts.length < 3) continue;
+    const P = smoothPath(r.pts, 1, 1, r.closed);          // 挑點用：輕輕抹平，轉角保持尖的
+    const { cum, L } = pathCum(P, r.closed);
+    if (L < minLen) continue;
+    const Pd = smoothPath(r.pts, 2, 2, r.closed);         // 印出來用：比較平滑
+    strokes.push({ P, closed: r.closed, L, cum, corners: rdpPath(P, cornerEps, r.closed).length, Ps: rdpPath(Pd, 0.6, r.closed).map((i) => Pd[i]) });
+  }
+  strokes.sort((a, b) => b.L - a.L);
+  const { lab, sizes } = components(blob, w, h), blobs = [];
+  for (let id = 1; id < sizes.length; id++) {
+    if (sizes[id] < 10 || sizes[id] > silArea * 0.25) continue;
+    const m = new Uint8Array(w * h); for (let i = 0; i < m.length; i++) if (lab[i] === id) m[i] = 1;
+    const t = trace(m, w, h); if (t.length > 4) blobs.push(smoothPath(t, 1, 1, true));
+  }
+  return { ink: band, blob, sk, strokes, blobs, hEff, cornerEps };
+}
+function analyze(cv, gap) {
+  const t0 = performance.now();
+  const w = cv.width, h = cv.height, d = ctx2d(cv).getImageData(0, 0, w, h).data;
+  const L = new Float32Array(w * h), V = new Float32Array(w * h);
+  for (let i = 0, j = 0; i < L.length; i++, j += 4) {
+    L[i] = 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2];
+    V[i] = Math.max(d[j], d[j + 1], d[j + 2]);
+  }
+  const fg = binarize(L, w, h);
+  const barrier = gap > 0 ? morph(fg, w, h, gap, true) : fg;
+  let shape = fillOutside(barrier, w, h);
+  if (gap > 0) shape = morph(shape, w, h, gap, false);
+  const { lab, sizes } = components(shape, w, h);
+  let bestId = 0; for (let k = 1; k < sizes.length; k++) if (sizes[k] > (sizes[bestId] || 0)) bestId = k;
+  const area = sizes[bestId] || 0;
+  const comp = new Uint8Array(w * h); for (let i = 0; i < comp.length; i++) comp[i] = bestId && lab[i] === bestId ? 1 : 0;
+  const extraParts = sizes.filter((s, k) => k && k !== bestId && s > area * 0.05).length;
+  const base = { w, h, fg, shape, comp };
+  if (area < w * h * 0.01) return { ...base, comp: null, error: '找不到夠大的圖形。試試看線條粗一點、背景乾淨一點的圖。' };
+  if (area > w * h * 0.9) return { ...base, comp: null, error: '整張圖都被當成圖形了。背景要是淺色，而且圖形不能碰到邊。' };
+  const P = smoothPath(trace(comp, w, h), 1, 3, true);
+  const { cum, L: Lout } = pathCum(P, true);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of P) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
+  const inner = innerLines(d, V, w, h, comp, area);
+  return { ...base, area, extraParts, P, cum, L: Lout, bbox: [x0, y0, x1 - x0, y1 - y0], ...inner, ms: performance.now() - t0 };
+}
+
+// ---------- 線 → 點 ----------
+function pathCum(P, closed) {
+  const n = P.length, cum = new Float64Array(n);
+  for (let i = 1; i < n; i++) cum[i] = cum[i - 1] + dist(P[i - 1], P[i]);
+  return { cum, L: closed ? cum[n - 1] + dist(P[n - 1], P[0]) : cum[n - 1] };
+}
+function rdpPath(P, eps, closed) {
+  const n = P.length; if (n < 3) return [...Array(n).keys()];
+  const keep = new Uint8Array(n); let st;
+  if (closed) {   // 從最遠的兩點切開（不要硬留第 0 點，它可能落在一條邊的中間）
+    let a = 0, b = 0, fd = -1;
+    for (let i = 1; i < n; i++) { const d = dist(P[0], P[i]); if (d > fd) { fd = d; a = i; } }
+    fd = -1; for (let i = 0; i < n; i++) { const d = dist(P[a], P[i]); if (d > fd) { fd = d; b = i; } }
+    if (a > b) [a, b] = [b, a];
+    keep[a] = keep[b] = 1; st = [[a, b], [b, a + n]];
+  } else { keep[0] = keep[n - 1] = 1; st = [[0, n - 1]]; }
+  const get = (i) => P[i % n];
+  while (st.length) {
+    const [a, b] = st.pop(); if (b - a < 2) continue;
+    const A = get(a), B = get(b); let md = -1, mi = -1;
+    for (let i = a + 1; i < b; i++) { const d = segDist(get(i), A, B); if (d > md) { md = d; mi = i; } }
+    if (md > eps) { keep[mi % n] = 1; st.push([a, mi], [mi, b]); }
+  }
+  const out = []; for (let i = 0; i < n; i++) if (keep[i]) out.push(i);
+  return out;
+}
+function vwReduce(P, idx, N, closed) {
+  const n = idx.length; if (n <= N) return idx.slice();
+  const prv = new Int32Array(n), nxt = new Int32Array(n), alive = new Uint8Array(n).fill(1), ar = new Float64Array(n);
+  for (let i = 0; i < n; i++) { prv[i] = closed ? (i - 1 + n) % n : i - 1; nxt[i] = closed ? (i + 1) % n : (i + 1 < n ? i + 1 : -1); }
+  const A = (i) => (prv[i] < 0 || nxt[i] < 0) ? Infinity : triArea(P[idx[prv[i]]], P[idx[i]], P[idx[nxt[i]]]);
+  for (let i = 0; i < n; i++) ar[i] = A(i);
+  let cnt = n;
+  while (cnt > N) {
+    let m = -1, mv = Infinity;
+    for (let i = 0; i < n; i++) if (alive[i] && ar[i] < mv) { mv = ar[i]; m = i; }
+    if (m < 0) break;
+    alive[m] = 0; const p = prv[m], q = nxt[m];
+    if (p >= 0) nxt[p] = q; if (q >= 0) prv[q] = p; cnt--;
+    if (p >= 0) ar[p] = A(p); if (q >= 0) ar[q] = A(q);
+  }
+  const out = []; for (let i = 0; i < n; i++) if (alive[i]) out.push(idx[i]);
+  return out;
+}
+// 先找轉角；點比轉角少就留最重要的轉角，點比轉角多就在最長的空檔中間補點
+const CORNER_EPS = 2.5;   // 比這個小的凸起（例如交叉點附近歪一兩個像素）不算轉角
+function pickOnPath(P, closed, N, dminPx, eps = CORNER_EPS) {
+  const { cum, L } = pathCum(P, closed), minN = closed ? 3 : 2;
+  const sel = vwReduce(P, rdpPath(P, eps, closed), Math.max(minN, N), closed);
+  const longest = () => {
+    const m = sel.length, last = closed ? m : m - 1; let bi = -1, bv = -1;
+    for (let i = 0; i < last; i++) {
+      const a = sel[i], b = sel[(i + 1) % m];
+      let g = closed ? ((cum[b] - cum[a]) % L + L) % L : cum[b] - cum[a];
+      if (closed && (m === 1 || g === 0)) g = L;
+      if (g > bv) { bv = g; bi = i; }
+    }
+    return { i: bi, arc: bv };
+  };
+  const insert = (g) => {
+    let t = cum[sel[g.i]] + g.arc / 2; if (closed && t >= L) t -= L;
+    let lo = 0, hi = cum.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (cum[mid] <= t) lo = mid; else hi = mid - 1; }
+    if (sel.includes(lo)) return false;
+    sel.push(lo); sel.sort((x, y) => x - y); return true;
+  };
+  for (let guard = 0; sel.length < N && guard < 500; guard++) {
+    const g = longest(); if (g.arc < 1.6 * dminPx || !insert(g)) break;
+  }
+  const area = (i) => {
+    const m = sel.length;
+    if (!closed && (i === 0 || i === m - 1)) return Infinity;
+    return triArea(P[sel[(i - 1 + m) % m]], P[sel[i]], P[sel[(i + 1) % m]]);
+  };
+  const dropClosest = () => {
+    const m = sel.length; if (m <= minN) return false;
+    const last = closed ? m : m - 1; let k = -1, md = Infinity;
+    for (let i = 0; i < last; i++) { const d = dist(P[sel[i]], P[sel[(i + 1) % m]]); if (d < md) { md = d; k = i; } }
+    if (md >= dminPx) return false;
+    const k2 = (k + 1) % m, a1 = area(k), a2 = area(k2);
+    if (a1 === Infinity && a2 === Infinity) return false;
+    sel.splice(a1 <= a2 ? k : k2, 1); return true;
+  };
+  for (let it = 0; it < 600 && dropClosest(); it++) {
+    if (sel.length < N) { const g = longest(); if (g.arc >= 2.2 * dminPx) insert(g); }
+  }
+  for (let it = 0; it < 600 && dropClosest(); it++);
+  return sel;
+}
+const signedArea = (pts) => { let A = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; A += p[0] * q[1] - q[0] * p[1]; } return A; };
+
+// ---------- 排數字 ----------
+function inPoly(p, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c;
+  }
+  return c;
+}
+function segBox(a, b, B) {
+  let t0 = 0, t1 = 1; const dx = b[0] - a[0], dy = b[1] - a[1];
+  const p = [-dx, dx, -dy, dy], q = [a[0] - B[0], B[2] - a[0], a[1] - B[1], B[3] - a[1]];
+  for (let k = 0; k < 4; k++) {
+    if (p[k] === 0) { if (q[k] < 0) return false; }
+    else {
+      const r = q[k] / p[k];
+      if (p[k] < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+      else { if (r < t0) return false; if (r < t1) t1 = r; }
+    }
+  }
+  return true;
+}
+function circBox(c, r, B) {
+  const x = Math.max(B[0], Math.min(c[0], B[2])), y = Math.max(B[1], Math.min(c[1], B[3]));
+  return Math.hypot(c[0] - x, c[1] - y) < r;
+}
+const boxHit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+const bboxOf = (pts) => { let a = [Infinity, Infinity, -Infinity, -Infinity]; for (const p of pts) { a = [Math.min(a[0], p[0]), Math.min(a[1], p[1]), Math.max(a[2], p[0]), Math.max(a[3], p[1])]; } return a; };
+function placeLabels(dots, segs, boxes, fs, silPoly) {
+  const n = dots.length, PADL = 0.3, R = 3.2 * fs + 6;
+  const dims = dots.map((d, i) => [(String(i + 1).length * 0.56 + (d.label.startsWith('★') ? 1.0 : 0)) * fs + 0.4, 0.74 * fs]);
+  const segB = segs.map(([a, b]) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])]);
+  const nearSeg = dots.map((d) => { const box = [d.p[0] - R, d.p[1] - R, d.p[0] + R, d.p[1] + R], out = []; segB.forEach((b, k) => { if (boxHit(b, box)) out.push(k); }); return out; });
+  const nearDot = dots.map((d, i) => { const out = []; dots.forEach((e, j) => { if (j !== i && dist(d.p, e.p) < 2 * R) out.push(j); }); return out; });
+  const nearBox = dots.map((d) => { const box = [d.p[0] - R, d.p[1] - R, d.p[0] + R, d.p[1] + R], out = []; boxes.forEach((b, k) => { if (boxHit(b, box)) out.push(k); }); return out; });
+  const U = []; for (let k = 0; k < 24; k++) { const t = k / 24 * Math.PI * 2; U.push([Math.cos(t), Math.sin(t)]); }
+  const res = new Array(n).fill(null);
+  function cost(i, u, c, b) {
+    const d = dots[i], dp = u[0] * d.nrm[0] + u[1] * d.nrm[1];
+    let s = d.closed ? 2.4 * (1 - dp) : 1.4 * (1 - Math.abs(dp));
+    if (b[0] < 0 || b[1] < 0 || b[2] > AW || b[3] > AH) s += 80;
+    if (d.outer && inPoly(c, silPoly)) s += 2.5;
+    for (const k of nearSeg[i]) if (segBox(segs[k][0], segs[k][1], b)) s += 14;
+    for (const k of nearBox[i]) if (boxHit(boxes[k], b)) s += 30;
+    for (const j of nearDot[i]) {
+      if (!dots[j].dup && dist(dots[j].p, dots[i].p) > 0.01 && circBox(dots[j].p, DOT_R + 0.7, b)) s += 30;
+      if (res[j] && boxHit(b, res[j].b)) s += 45;
+    }
+    return s;
+  }
+  function place(i) {
+    const [w, h] = dims[i]; let best = null;
+    for (const u of U) {
+      const sup = Math.abs(u[0]) * w / 2 + Math.abs(u[1]) * h / 2;
+      for (const extra of [0.9, 1.8]) {
+        const r = DOT_R + extra + sup, c = [dots[i].p[0] + u[0] * r, dots[i].p[1] + u[1] * r];
+        const b = [c[0] - w / 2 - PADL, c[1] - h / 2 - PADL, c[0] + w / 2 + PADL, c[1] + h / 2 + PADL];
+        const sc = cost(i, u, c, b) + (extra > 1 ? 0.6 : 0);
+        if (!best || sc < best.sc) best = { c, b, sc };
+      }
+    }
+    res[i] = best;
+  }
+  const order = nearDot.map((l, i) => [l.filter((j) => dist(dots[i].p, dots[j].p) < 3 * fs).length, i]).sort((a, b) => b[0] - a[0]);
+  for (const [, i] of order) place(i);
+  for (let pass = 0; pass < 2; pass++) for (let i = 0; i < n; i++) { res[i] = null; place(i); }
+  return res;
+}
+function measure(dots, lab, segs, boxes, dmin) {
+  const n = dots.length; let minGap = Infinity, ll = 0, ld = 0, lline = 0, near = 0;
+  for (let i = 1; i < n; i++) if (!dots[i].start) minGap = Math.min(minGap, dist(dots[i - 1].p, dots[i].p));
+  const linked = (i, j) => (j === i + 1 && !dots[j].start) || (dots[j].g === dots[i].g && (dots[j].dup || (dots[i].start && dots[j].idx === dots[j].n - 1)));
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (boxHit(lab[i].b, lab[j].b)) ll++;
+      const dd = dist(dots[i].p, dots[j].p);
+      if (!linked(i, j) && dd > 0.01 && dd < 0.75 * dmin) near++;   // 完全同一點是故意共用的
+    }
+    for (let j = 0; j < n; j++) if (j !== i && !dots[j].dup && dist(dots[i].p, dots[j].p) > 0.01 && circBox(dots[j].p, DOT_R + 0.3, lab[i].b)) ld++;
+    for (const [a, b] of segs) if (segBox(a, b, lab[i].b)) lline++;
+    for (const b of boxes) if (boxHit(b, lab[i].b)) lline++;
+  }
+  return { minGap: minGap === Infinity ? 0 : minGap, ll, ld, lline, near };
+}
+function layout(an, N, withInner) {
+  const t0 = performance.now();
+  const fs = N <= 30 ? 4.6 : N <= 60 ? 3.9 : N <= 100 ? 3.3 : 3.0, dmin = fs * 1.45;
+  const [bx, by, bw, bh] = an.bbox;
+  const s = Math.min((AW - 2 * MARGIN) / bw, (AH - 2 * MARGIN) / bh), ox = (AW - bw * s) / 2, oy = (AH - bh * s) / 2;
+  const toMM = (p) => [(p[0] - bx) * s + ox, (p[1] - by) * s + oy];
+  const dminPx = dmin / s;
+  // 哪些裡面的線要變成點：照長度分配點數，分不到幾點的就直接印好
+  let cand = withInner ? an.strokes.map((st, k) => ({ st, k, len: st.L * s })).filter((c) => c.len >= (c.st.closed ? 4 : 2.2) * dmin) : [];
+  let alloc = [];
+  for (let guard = 0; guard < 1000; guard++) {
+    const tot = an.L * s + cand.reduce((a, c) => a + c.len, 0), rho = N / tot;
+    alloc = cand.map((c) => Math.round(c.len * rho));
+    let worst = -1;
+    cand.forEach((c, i) => { if (alloc[i] < (c.st.closed ? 4 : 3) && (worst < 0 || c.len < cand[worst].len)) worst = i; });
+    if (worst < 0) break;
+    cand.splice(worst, 1);
+  }
+  // 分到的點數跟轉角數差不多時，就用轉角數（正方形的窗戶剛好 4 點，不會多一點把邊拉斜）
+  cand.forEach((c, i) => { const k = c.st.corners; if (k >= (c.st.closed ? 4 : 3) && Math.abs(alloc[i] - k) <= Math.max(1, Math.round(k * 0.3))) alloc[i] = k; });
+  const nOuter = Math.max(6, N - alloc.reduce((a, b) => a + b, 0)), ceps = an.cornerEps;
+  let osel = pickOnPath(an.P, true, nOuter, dminPx, ceps);
+  const inner = cand.map((c, i) => {
+    let px = pickOnPath(c.st.P, c.st.closed, alloc[i], dminPx, ceps).map((j) => c.st.P[j]);
+    if (c.st.closed && signedArea(px) < 0) px.reverse();
+    return { px, closed: c.st.closed, outer: false, k: c.k, shared: new Set(), P: c.st.P };
+  });
+  // T 字接頭：裡面的線碰到外框的地方（例如門碰到牆），外框在那裡放一個點，兩條線共用
+  const jT = 2 * an.hEff + 6, oShared = new Set();
+  for (const g of inner) {
+    if (g.closed) continue;
+    const snapped = [];
+    for (const end of [0, g.px.length - 1]) {
+      const e = g.px[end]; let bj = -1, bd = Infinity;
+      an.P.forEach((p, j) => { const d = dist(p, e); if (d < bd) { bd = d; bj = j; } });
+      if (bd > jT) continue;
+      // 只有線頭真的朝外框走過去（像門的邊撞到牆）才接上；擦邊而過的不算
+      const n = g.P.length, q = end === 0 ? g.P[Math.min(8, n - 1)] : g.P[Math.max(0, n - 9)];
+      const u = [e[0] - q[0], e[1] - q[1]], v = [an.P[bj][0] - e[0], an.P[bj][1] - e[1]];
+      const cos = (u[0] * v[0] + u[1] * v[1]) / ((Math.hypot(...u) * Math.hypot(...v)) || 1);
+      if (bd > an.hEff + 1 && cos < 0.5) continue;
+      if (snapped.some((j) => { const a = Math.abs(an.cum[j] - an.cum[bj]); return Math.min(a, an.L - a) < dminPx; })) continue;   // 同一條線的兩頭不能接到同一個地方
+      snapped.push(bj);
+      g.px[end] = an.P[bj]; g.shared.add(end); oShared.add(bj);
+      let bk = -1, ba = Infinity;
+      osel.forEach((j, k) => { if (oShared.has(j) && j !== bj) return; const a = Math.abs(an.cum[j] - an.cum[bj]), arc = Math.min(a, an.L - a); if (arc < ba) { ba = arc; bk = k; } });
+      if (bk >= 0 && ba < 0.75 * dminPx) osel[bk] = bj; else osel.push(bj);
+      osel = [...new Set(osel)].sort((a, b) => a - b);
+    }
+  }
+  let ol = osel.map((i) => ({ p: an.P[i], prot: oShared.has(i) }));
+  if (signedArea(ol.map((o) => o.p)) < 0) ol.reverse();
+  let top = 0; for (let i = 1; i < ol.length; i++) if (ol[i].p[1] < ol[top].p[1]) top = i;
+  ol = ol.slice(top).concat(ol.slice(0, top));
+  const groups = [{ pts: ol.map((o) => toMM(o.p)), prot: ol.map((o) => o.prot), closed: true, outer: true }];
+  for (const g of inner) groups.push({ ...g, pts: g.px.map(toMM), prot: g.px.map((_, i) => !g.closed && (i === 0 || i === g.px.length - 1)) });
+  // 跟前面已經放好的點太近：中間的點拿掉；線頭就貼到那一點上，兩條線共用
+  const placed = groups[0].pts.slice();
+  for (const g of groups.slice(1)) {
+    const keep = [];
+    g.pts.forEach((p, i) => {
+      if (g.shared.has(i)) { keep.push({ p, prot: true }); return; }
+      let q = null, qd = Infinity; for (const r of placed) { const d = dist(p, r); if (d < qd) { qd = d; q = r; } }
+      if (qd >= 0.75 * dmin) keep.push({ p, prot: g.prot[i] });
+      else if (!g.closed && (i === 0 || i === g.pts.length - 1)) keep.push({ p: q.slice(), prot: true });
+    });
+    const k2 = keep.filter((o, i) => i === 0 || dist(o.p, keep[i - 1].p) > 0.01);
+    g.pts = k2.map((o) => o.p); g.prot = k2.map((o) => o.prot);
+    if (g.pts.length < (g.closed ? 4 : 2)) { g.drop = true; continue; }
+    placed.push(...g.pts);
+  }
+  // 最後再檢查一次相鄰兩點的間距：共用的點和線頭不動，太近就刪旁邊那個
+  for (const g of groups) {
+    if (g.drop) continue;
+    for (let it = 0; it < 300; it++) {
+      const m = g.pts.length, last = g.closed ? m : m - 1; if (m <= (g.closed ? 4 : 2)) break;
+      let k = -1, md = Infinity;
+      for (let i = 0; i < last; i++) { const j = (i + 1) % m; if (g.prot[i] && g.prot[j]) continue; const d = dist(g.pts[i], g.pts[j]); if (d < md) { md = d; k = i; } }
+      if (k < 0 || md >= dmin * 0.98) break;
+      const a = k, b = (k + 1) % m, ar = (i) => triArea(g.pts[(i - 1 + m) % m], g.pts[i], g.pts[(i + 1) % m]);
+      const rm = g.prot[a] ? b : g.prot[b] ? a : (ar(a) <= ar(b) ? a : b);
+      g.pts.splice(rm, 1); g.prot.splice(rm, 1);
+    }
+  }
+  const live = groups.filter((g) => !g.drop);
+  // 裡面的線的順序：從上一條的結尾，找最近的下一條
+  const ordered = [live[0]], rest = live.slice(1);
+  let cur = live[0].pts[0];   // 外框繞一圈回到 1
+  while (rest.length) {
+    let bi = 0, bd = Infinity, bj = 0;
+    rest.forEach((g, i) => {
+      if (g.closed) g.pts.forEach((p, j) => { const d = dist(cur, p); if (d < bd) { bd = d; bi = i; bj = j; } });
+      else { const d0 = dist(cur, g.pts[0]), d1 = dist(cur, g.pts[g.pts.length - 1]); if (d0 < bd) { bd = d0; bi = i; bj = 0; } if (d1 < bd) { bd = d1; bi = i; bj = -1; } }
+    });
+    const g = rest.splice(bi, 1)[0];
+    if (g.closed) g.pts = g.pts.slice(bj).concat(g.pts.slice(0, bj)); else if (bj === -1) g.pts.reverse();
+    ordered.push(g); cur = g.closed ? g.pts[0] : g.pts[g.pts.length - 1];
+  }
+  const dots = [], drawn = [], closing = [];
+  ordered.forEach((g, gi) => {
+    const m = g.pts.length;
+    g.pts.forEach((p, i) => {
+      const a = g.closed ? g.pts[(i - 1 + m) % m] : g.pts[Math.max(0, i - 1)], b = g.closed ? g.pts[(i + 1) % m] : g.pts[Math.min(m - 1, i + 1)];
+      const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
+      dots.push({ p, g: gi, idx: i, n: m, start: i === 0, closed: g.closed, outer: g.outer, nrm: [ty / l, -tx / l] });
+      if (i > 0) drawn.push([g.pts[i - 1], p]);
+    });
+    // 繞一圈的線：起點再給一個號碼（例如 ★45 旁邊也標 50），照順序連就會自己接回起點
+    if (g.closed) {
+      const d0 = dots[dots.length - m];
+      dots.push({ p: g.pts[0], g: gi, idx: m, n: m, start: false, closed: true, outer: g.outer, nrm: d0.nrm, dup: true });
+      drawn.push([g.pts[m - 1], g.pts[0]]);
+    }
+  });
+  dots.forEach((d, i) => { d.label = (d.start && i > 0 ? '★' : '') + (i + 1); });   // ★ 黏在數字前面：小孩是找數字的，這樣一定看得到
+  const usedK = new Set(ordered.filter((g) => !g.outer).map((g) => g.k));
+  const printed = an.strokes.filter((_, k) => !usedK.has(k)).map((st) => { const q = st.Ps.map(toMM); if (st.closed) q.push(q[0]); return q; });
+  const blobs = an.blobs.map((b) => b.map(toMM));
+  const segs = drawn.concat(closing);
+  for (const pl of printed) for (let i = 1; i < pl.length; i++) segs.push([pl[i - 1], pl[i]]);
+  const boxes = blobs.map(bboxOf);
+  const labels = placeLabels(dots, segs, boxes, fs, ordered[0].pts);
+  return {
+    N, fs, dmin, s, bx, by, ox, oy, dots, groups: ordered, drawn, closing, printed, blobs,
+    outline: ordered[0].pts, labels, metrics: measure(dots, labels, segs, boxes, dmin),
+    innerUsed: ordered.length - 1, innerPrinted: printed.length, ms: performance.now() - t0 + an.ms,
+  };
+}
+
+// ---------- 畫出來 ----------
+const f2 = (v) => Math.round(v * 100) / 100;
+const polyD = (pts, close = true) => 'M' + pts.map((p) => f2(p[0]) + ' ' + f2(p[1])).join('L') + (close ? 'Z' : '');
+const starD = (c, r) => { let d = ''; for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; d += (k ? 'L' : 'M') + f2(c[0] + rr * Math.cos(a)) + ' ' + f2(c[1] + rr * Math.sin(a)); } return d + 'Z'; };
+function printedSVG(L, withDetails, color = INK) {
+  let s = '';
+  if (withDetails) {
+    for (const pl of L.printed) s += `<path d="${polyD(pl, false)}" fill="none" stroke="${color}" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    for (const b of L.blobs) s += `<path d="${polyD(b)}" fill="${color}"/>`;
+  }
+  for (const [a, b] of L.closing) s += `<line x1="${f2(a[0])}" y1="${f2(a[1])}" x2="${f2(b[0])}" y2="${f2(b[1])}" stroke="${color}" stroke-width="0.6" stroke-linecap="round"/>`;
+  return s;
+}
+function sheetSVG(L, answer, withDetails) {
+  let s = '';
+  if (answer) {
+    for (const g of L.groups) s += `<path d="${polyD(g.pts, g.closed)}" fill="none" stroke="${INK}" stroke-width="0.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s += printedSVG(L, true);
+  } else s += printedSVG(L, withDetails);
+  L.dots.forEach((d, i) => {
+    const p = d.p;
+    if (d.dup) return;
+    s += `<circle cx="${f2(p[0])}" cy="${f2(p[1])}" r="${answer ? 0.55 : DOT_R}" fill="${answer ? '#9a9a9a' : INK}"/>`;
+    if (i === 0 && !answer) s += `<circle cx="${f2(p[0])}" cy="${f2(p[1])}" r="1.9" fill="none" stroke="${INK}" stroke-width="0.3"/>`;
+  });
+  L.labels.forEach((l, i) => {
+    const bold = !answer && L.dots[i].start;
+    s += `<text class="lbl" x="${f2(l.c[0])}" y="${f2(l.c[1])}" font-size="${answer ? f2(L.fs * 0.8) : L.fs}" text-anchor="middle" dominant-baseline="central" fill="${answer ? '#9a9a9a' : INK}"${bold ? ' font-weight="700"' : ''}>${answer ? i + 1 : L.dots[i].label}</text>`;
+  });
+  return s;
+}
+const RUBY_TITLE = '<ruby>數<rt>ㄕㄨˋ</rt></ruby><ruby>字<rt>ㄗˋ</rt></ruby><ruby>連<rt>ㄌㄧㄢˊ</rt></ruby><ruby>連<rt>ㄌㄧㄢˊ</rt></ruby><ruby>看<rt>ㄎㄢˋ</rt></ruby>';
+const RUBY_ANS = '<ruby>答<rt>ㄉㄚˊ</rt></ruby><ruby>案<rt>ㄢˋ</rt></ruby>';
+const RUBY_NAME = '<ruby>名<rt>ㄇㄧㄥˊ</rt></ruby><ruby>字<rt>˙ㄗ</rt></ruby>';
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function sheetText(L, answer) {
+  const n = L.dots.length;
+  return {
+    inst: answer ? `答案：${state.src.name}（數到 ${n}）`
+      : L.groups.length > 1 ? `從 1 開始照順序連到 ${n}。數字前面有 ★ 的是新的一條線：筆先提起來，從 ★ 那一點重新開始。` : `從 1 開始，照順序連到 ${n}。`,
+    foot: `數字連連看 · ${state.src.name} · 數到 ${n}`,
+  };
+}
+// 列印用：題目頁（＋答案頁），平常藏著，一直跟畫面同步，所以直接按 Ctrl+P 也印得對
+function renderPrint() {
+  const L = state.lay;
+  if (!L) { $('printArea').innerHTML = ''; return; }
+  const block = (answer) => {
+    const t = sheetText(L, answer);
+    return `<div class="psheet"><div class="sheet-wrap"><div class="sheet"><div class="sheet-head"><div class="sheet-title">${answer ? RUBY_ANS : RUBY_TITLE}</div><div class="sheet-name">${RUBY_NAME}<span class="line"></span></div></div><p class="sheet-inst">${esc(t.inst)}</p><svg viewBox="0 0 186 232">${sheetSVG(L, answer, state.det)}</svg><div class="sheet-foot">${esc(t.foot)}</div></div></div></div>`;
+  };
+  $('printArea').innerHTML = block(false) + ($('withAns').checked ? block(true) : '');
+}
+function renderSheet() {
+  const L = state.lay, answer = state.tab === 'answer';
+  $('sheetTitle').innerHTML = answer ? RUBY_ANS : RUBY_TITLE;
+  renderPrint();
+  if (!L) { $('sheetInst').textContent = '這張圖轉不出來，看左邊的說明。'; $('sheetFoot').textContent = ''; $('sheetSvg').innerHTML = ''; return; }
+  const t = sheetText(L, answer);
+  $('sheetInst').textContent = t.inst;
+  $('sheetFoot').textContent = t.foot;
+  $('sheetSvg').innerHTML = sheetSVG(L, answer, state.det);
+}
+function fit(cv, w, h, fn) {
+  const c = cv.getContext('2d');
+  c.setTransform(1, 0, 0, 1, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+  const s = Math.min(cv.width / w, cv.height / h) * 0.94;
+  c.setTransform(s, 0, 0, s, (cv.width - w * s) / 2, (cv.height - h * s) / 2);
+  fn(c, s);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+}
+function maskCanvas(an, mode) {
+  const { w, h } = an, cv = mk(w, h), c = cv.getContext('2d'), im = c.createImageData(w, h), d = im.data;
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    let v = [255, 255, 255];
+    if (mode === 'faint') { if (an.comp && an.comp[i]) v = [236, 239, 243]; }
+    else {
+      if (an.comp && an.comp[i]) v = [214, 220, 228];
+      else if (an.shape[i] || an.fg[i]) v = [236, 239, 243];
+      if (an.ink && an.ink[i]) v = an.blob && an.blob[i] ? [20, 20, 20] : [58, 68, 82];
+    }
+    d[j] = v[0]; d[j + 1] = v[1]; d[j + 2] = v[2]; d[j + 3] = 255;
+  }
+  c.putImageData(im, 0, 0);
+  return cv;
+}
+const strokePath = (c, P, closed) => { c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); if (closed) c.closePath(); c.stroke(); };
+function drawPipeline() {
+  const an = state.an, src = sourceCanvas(state.src), L = state.lay;
+  const w = src.width, h = src.height;
+  fit($('p1'), w, h, (c) => c.drawImage(src, 0, 0));
+  $('c1').textContent = state.src.photo ? '模擬的手機照片' : state.src.id === 'upload' ? '你上傳的圖' : '內建線稿';
+  fit($('p2'), w, h, (c) => c.drawImage(maskCanvas(an, 'full'), 0, 0));
+  $('c2').textContent = an.error ? '找不到可以用的圖形' : `淺灰是剪影（線稿內部補滿），深色是圖裡的墨線${an.extraParts ? `；另有 ${an.extraParts} 塊分開的部分沒用到` : ''}`;
+  const faint = an.comp ? maskCanvas(an, 'faint') : null;
+  fit($('p3'), w, h, (c, s) => {
+    if (!faint) return;
+    c.drawImage(faint, 0, 0); c.lineJoin = 'round'; c.lineCap = 'round';
+    c.fillStyle = '#9aa3ae'; for (const b of an.blobs) { c.beginPath(); b.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath(); c.fill(); }
+    c.strokeStyle = '#2c6bd6'; c.lineWidth = 1.6 / s; for (const st of an.strokes) strokePath(c, st.P, st.closed);
+    c.strokeStyle = '#c8402c'; c.lineWidth = 1.8 / s; strokePath(c, an.P, true);
+  });
+  $('c3').textContent = an.error ? '—' : `紅色是外框；藍色是裡面的 ${an.strokes.length} 條線，灰色是塗滿的 ${an.blobs.length} 塊`;
+  fit($('p4'), w, h, (c, s) => {
+    if (!faint || !L) return;
+    c.drawImage(faint, 0, 0);
+    const back = (p) => [(p[0] - L.ox) / L.s + L.bx, (p[1] - L.oy) / L.s + L.by];
+    c.strokeStyle = '#9aa3ae'; c.lineWidth = 1.4 / s; c.lineJoin = 'round';
+    if (state.det) for (const pl of L.printed) strokePath(c, pl.map(back), false);
+    c.fillStyle = '#9aa3ae'; if (state.det) for (const b of L.blobs) { c.beginPath(); b.map(back).forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath(); c.fill(); }
+    c.fillStyle = INK;
+    L.dots.forEach((d) => { const p = back(d.p); c.beginPath(); c.arc(p[0], p[1], (d.start ? 4.5 : 2.8) / s, 0, Math.PI * 2); c.fill(); });
+  });
+  const real = L ? L.dots.filter((d) => !d.dup).length : 0;
+  $('c4').textContent = L ? (L.groups.length > 1 ? `${real} 點：外框和 ${L.innerUsed} 條裡面的線；灰色的 ${L.innerPrinted} 條先印好` : `外框 ${real} 點${L.innerPrinted ? `；灰色的 ${L.innerPrinted} 條先印好` : ''}`) : '—';
+}
+function renderChecks() {
+  const ul = $('checks'), an = state.an, L = state.lay;
+  if (an.error) { ul.innerHTML = `<li class="warn">${an.error}</li>`; return; }
+  const m = L.metrics, n = L.dots.filter((d) => !d.dup).length, items = [];
+  items.push(n >= L.N * 0.95 ? ['ok', `${n} 個點、數到 ${L.dots.length}${L.groups.length > 1 ? `，分成 ${L.groups.length} 條線（${L.groups.length - 1} 個 ★）` : ''}`] : ['warn', `要 ${L.N} 點，這張圖最多只放得下 <span class="num">${n}</span> 點（點跟點要隔 ${L.dmin.toFixed(1)} mm 以上）`]);
+  items.push([m.minGap >= L.dmin * 0.98 ? 'ok' : 'warn', `相鄰兩點最近隔 <span class="num">${m.minGap.toFixed(1)}</span> mm`]);
+  items.push([m.ll + m.ld === 0 ? 'ok' : 'warn', `數字疊到別的數字或點：<span class="num">${m.ll + m.ld}</span> 處`]);
+  items.push([m.lline === 0 ? 'ok' : 'warn', `數字壓到線：<span class="num">${m.lline}</span> 處`]);
+  items.push([m.near === 0 ? 'ok' : 'warn', `不相連、卻靠得很近的點：<span class="num">${m.near}</span> 對（小孩可能連錯）`]);
+  items.push(['info', `數字約 <span class="num">${Math.round(L.fs / 0.3528)}</span> pt · 計算花了 <span class="num">${Math.max(1, Math.round(L.ms))}</span> ms`]);
+  ul.innerHTML = items.map(([k, t]) => `<li class="${k === 'ok' ? '' : k}"><span>${t}</span></li>`).join('');
+}
+
+// ---------- 平板試玩 ----------
+const play = { next: 0, wrong: 0, timer: 0, done: false };
+function svgPoint(svg, x, y) { const p = svg.createSVGPoint(); p.x = x; p.y = y; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+function buildPlay() {
+  const L = state.lay, svg = $('playSvg');
+  clearTimeout(play.timer);
+  Object.assign(play, { next: 0, wrong: 0, done: false });
+  if (!L) { svg.innerHTML = ''; $('playStatus').textContent = '這張圖轉不出來'; return; }
+  let s = `<path id="pfill" d="${polyD(L.outline)}" fill="#ffd79a" opacity="0"/>${printedSVG(L, true)}<g id="plines"></g>`;
+  L.dots.forEach((d, i) => {
+    s += `<g class="pd" data-i="${i}" transform="translate(${f2(d.p[0])} ${f2(d.p[1])})"><g class="wob"><circle class="halo" r="3.4"/><circle class="ring" r="2.6"/><circle class="core" r="1.15"/></g></g>`;
+  });
+  L.labels.forEach((l, i) => { s += `<text class="plbl" data-i="${i}" x="${f2(l.c[0])}" y="${f2(l.c[1])}" font-size="${L.fs}" text-anchor="middle" dominant-baseline="central"${L.dots[i].start ? ' font-weight="700"' : ''}>${L.dots[i].label}</text>`; });
+  svg.innerHTML = s;
+  setStatus(); armIdle();
+}
+function setStatus(msg) {
+  const L = state.lay;
+  if (msg) { $('playStatus').innerHTML = msg; return; }
+  const star = play.next > 0 && L && L.dots[play.next] && L.dots[play.next].start;
+  $('playStatus').innerHTML = play.next === 0 ? '從 <b>1</b> 開始' : star ? `筆提起來，找 ★<b>${play.next + 1}</b>` : `下一個<b>${play.next + 1}</b>`;
+}
+function armIdle() { clearTimeout(play.timer); play.timer = setTimeout(hint, 7000); }
+function hint() { const g = $('playSvg').querySelector(`.pd[data-i="${play.next}"]`); if (g && !play.done) g.classList.add('hint'); }
+function addLine(a, b) {
+  const len = dist(a, b), el = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  el.setAttribute('class', 'pl-line');
+  el.setAttribute('x1', a[0]); el.setAttribute('y1', a[1]); el.setAttribute('x2', b[0]); el.setAttribute('y2', b[1]);
+  el.style.strokeDasharray = len; el.style.strokeDashoffset = len;
+  $('plines').append(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => { el.style.strokeDashoffset = 0; }));
+}
+function tap(i) {
+  const L = state.lay; if (!L || play.done) return;
+  const svg = $('playSvg'), g = svg.querySelector(`.pd[data-i="${i}"]`);
+  if (i === play.next) {
+    svg.querySelectorAll('.pd.hint,.pd.cur').forEach((e) => e.classList.remove('hint', 'cur'));
+    if (i > 0 && !L.dots[i].start) addLine(L.dots[i - 1].p, L.dots[i].p);
+    g.classList.add('on', 'cur');
+    svg.querySelector(`.plbl[data-i="${i}"]`).classList.add('on');
+    play.next++; play.wrong = 0;
+    if (play.next === L.dots.length) {
+      play.done = true; clearTimeout(play.timer); g.classList.remove('cur');
+      setTimeout(() => { $('pfill').setAttribute('opacity', '1'); setStatus(state.src.id === 'upload' ? '完成了！' : `完成了！是${state.src.name}！`); }, 320);
+      return;
+    }
+    setStatus(); armIdle();
+  } else {
+    const wob = g.querySelector('.wob');
+    wob.classList.remove('shake'); void wob.getBBox(); wob.classList.add('shake');
+    if (++play.wrong >= 2) hint();
+  }
+}
+$('playSvg').addEventListener('pointerdown', (e) => {
+  const L = state.lay; if (!L) return;
+  const p = svgPoint($('playSvg'), e.clientX, e.clientY), q = [p.x, p.y];
+  let best = -1, bd = 6.5;
+  L.dots.forEach((d, i) => { const dd = Math.min(dist(q, d.p), dist(q, L.labels[i].c)); if (dd < bd) { bd = dd; best = i; } });
+  const exp = L.dots[play.next];   // 起點和繞回來的號碼在同一點：點那裡就算現在要的那個
+  if (best >= 0 && exp && dist(L.dots[best].p, exp.p) < 0.01) best = play.next;
+  if (best >= 0) tap(best);
+});
+$('again').addEventListener('click', buildPlay);
+
+// ---------- 狀態與事件 ----------
+const state = { src: SAMPLES[4], upload: null, gap: 3, N: 50, inner: true, det: true, tab: 'puzzle', an: null, lay: null };
+function sourceCanvas(item) {
+  if (!item.canvas) item.canvas = item.photo ? canvasFromImage(makePhoto()) : lineArtCanvas(item);
+  return item.canvas;
+}
+const tileItems = () => ALL.concat(state.upload ? [state.upload] : []);
+function buildTiles() {
+  const box = $('pics'); box.innerHTML = '';
+  for (const item of tileItems()) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pic'; b.setAttribute('aria-pressed', String(state.src === item));
+    const cv = mk(128, 128), c = cv.getContext('2d'), sc = sourceCanvas(item);
+    c.fillStyle = '#fff'; c.fillRect(0, 0, 128, 128);
+    const k = Math.min(128 / sc.width, 128 / sc.height);
+    c.drawImage(sc, (128 - sc.width * k) / 2, (128 - sc.height * k) / 2, sc.width * k, sc.height * k);
+    b.append(cv, document.createTextNode(item.name));
+    b.addEventListener('click', () => select(item));
+    box.append(b);
+  }
+  const up = document.createElement('label');
+  up.className = 'pic upload';
+  up.innerHTML = '<span class="upicon" aria-hidden="true">＋</span>上傳圖片<input type="file" id="file" accept="image/*">';
+  up.querySelector('input').addEventListener('change', onFile);
+  box.append(up);
+}
+function select(item) {
+  state.src = item;
+  const items = tileItems();
+  $('pics').querySelectorAll('.pic[aria-pressed]').forEach((b, i) => b.setAttribute('aria-pressed', String(items[i] === item)));
+  run();
+}
+function run() { state.an = analyze(sourceCanvas(state.src), state.gap); relayout(); }
+function relayout() {
+  state.lay = state.an.error ? null : layout(state.an, state.N, state.inner);
+  drawPipeline(); renderChecks(); renderSheet();
+  if (state.tab === 'play') buildPlay();
+}
+function useImage(img) {
+  state.upload = { id: 'upload', name: '你的圖', canvas: canvasFromImage(img) };
+  buildTiles(); select(state.upload);
+}
+function onFile(e) {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => { URL.revokeObjectURL(url); useImage(img); };
+  img.onerror = () => { URL.revokeObjectURL(url); $('checks').innerHTML = '<li class="warn">這個檔案打不開，換一張 PNG 或 JPG 試試看。</li>'; };
+  img.src = url;
+}
+let raf = 0;
+$('n').addEventListener('input', (e) => {
+  state.N = +e.target.value; $('nOut').value = state.N;
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(relayout);
+});
+$('gap').addEventListener('input', (e) => { state.gap = +e.target.value; $('gapOut').value = state.gap; });
+$('gap').addEventListener('change', run);
+$('det').addEventListener('change', (e) => { state.det = e.target.checked; drawPipeline(); renderSheet(); });
+function setMode(inner) {
+  state.inner = inner;
+  $('m-outer').setAttribute('aria-pressed', String(!inner)); $('m-inner').setAttribute('aria-pressed', String(inner));
+  relayout();
+}
+$('m-outer').addEventListener('click', () => setMode(false));
+$('m-inner').addEventListener('click', () => setMode(true));
+function setTab(tab) {
+  state.tab = tab;
+  for (const [id, t] of [['t-puzzle', 'puzzle'], ['t-answer', 'answer'], ['t-play', 'play']]) $(id).setAttribute('aria-selected', String(t === tab));
+  $('panel-sheet').hidden = tab === 'play'; $('panel-play').hidden = tab !== 'play';
+  if (tab === 'play') buildPlay(); else renderSheet();
+}
+$('t-puzzle').addEventListener('click', () => setTab('puzzle'));
+$('t-answer').addEventListener('click', () => setTab('answer'));
+$('t-play').addEventListener('click', () => setTab('play'));
+$('btnPrint').addEventListener('click', () => { renderPrint(); window.print(); });
+$('withAns').addEventListener('change', renderPrint);
+window.addEventListener('beforeprint', renderPrint);
+$('btnReload').addEventListener('click', () => location.reload());
+
+buildTiles();
+select(SAMPLES[4]);
+
+// ---------- 本機測試用：#selftest、#img=<網址>&n=80&mode=outer&tab=answer ----------
+const hash = location.hash.slice(1);
+if (hash === 'selftest') {
+  const rows = [];
+  for (const item of ALL) {
+    const an = analyze(sourceCanvas(item), 3);
+    if (an.error) { rows.push(`${item.id}: ERROR ${an.error}`); continue; }
+    rows.push(`${item.id}: strokes=${an.strokes.length} (${an.strokes.map((s) => Math.round(s.L) + (s.closed ? 'o' : '')).join(',')}) blobs=${an.blobs.length} hEff=${an.hEff} ms=${an.ms.toFixed(0)}`);
+    for (const inner of [false, true]) for (const N of [15, 30, 50, 80, 120]) {
+      const L = layout(an, N, inner), m = L.metrics;
+      rows.push(`  ${inner ? 'in ' : 'out'} N=${String(N).padStart(3)} got=${String(L.dots.filter((d) => !d.dup).length).padStart(3)} lines=${L.groups.length} printed=${L.innerPrinted} minGap=${m.minGap.toFixed(2)}/${L.dmin.toFixed(2)} lab-lab=${m.ll} lab-dot=${m.ld} lab-line=${m.lline} near=${m.near} ms=${L.ms.toFixed(0)}`);
+    }
+  }
+  const cat = analyze(silhouetteCanvas(SAMPLES[0]), 3), ph = analyze(sourceCanvas(PHOTO), 3);
+  rows.push(`photo vs filled cat area ratio = ${(ph.area / (cat.area * Math.pow(WORK / (WORK + 2 * PAD), 2))).toFixed(3)}`);
+  const pre = document.createElement('pre'); pre.id = 'selftest'; pre.textContent = rows.join('\n');
+  document.querySelector('.page').prepend(pre);
+} else if (hash.startsWith('sample=')) {
+  const q = new URLSearchParams(hash);
+  if (q.get('n')) { state.N = +q.get('n'); $('n').value = state.N; $('nOut').value = state.N; }
+  select(SAMPLES.find((s) => s.id === q.get('sample')) || SAMPLES[0]);
+  if (q.get('tab')) setTab(q.get('tab'));
+  const L = state.lay, an = state.an;
+  const pre = document.createElement('pre'); pre.id = 'selftest';
+  pre.textContent = an.strokes.map((s, k) => `stroke ${k}: ${s.closed ? 'closed' : 'open'} L=${Math.round(s.L)} start=${s.P[0].map(Math.round)} n=${s.P.length}`).join('\n') + '\n' +
+    L.groups.map((g, k) => `group ${k}${g.outer ? ' outer' : ''} ${g.closed ? 'closed' : 'open'} k=${g.k}: ` + g.pts.map((p) => p.map((v) => v.toFixed(0)).join(',')).join(' ')).join('\n');
+  document.querySelector('.page').prepend(pre);
+  if (q.get('big')) {
+    const Z = 3, cv = mk(an.w * Z, an.h * Z), c = cv.getContext('2d');
+    c.fillStyle = '#fff'; c.fillRect(0, 0, cv.width, cv.height);
+    c.globalAlpha = 0.25; c.drawImage(sourceCanvas(state.src), 0, 0, cv.width, cv.height); c.globalAlpha = 1;
+    c.fillStyle = '#f0a'; for (let i = 0; i < an.sk.length; i++) if (an.sk[i]) c.fillRect((i % an.w) * Z, ((i / an.w) | 0) * Z, Z, Z);
+    const cols = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#9a6324', '#000075', '#808000'];
+    an.strokes.forEach((s, k) => { c.strokeStyle = cols[k % cols.length]; c.lineWidth = 2; c.beginPath(); s.P.forEach((p, i) => (i ? c.lineTo(p[0] * Z, p[1] * Z) : c.moveTo(p[0] * Z, p[1] * Z))); if (s.closed) c.closePath(); c.stroke(); c.fillStyle = c.strokeStyle; c.font = '20px Arial'; c.fillText(String(k), s.P[0][0] * Z + 4, s.P[0][1] * Z - 4); });
+    c.strokeStyle = '#d00'; c.lineWidth = 1; c.beginPath(); an.P.forEach((p, i) => (i ? c.lineTo(p[0] * Z, p[1] * Z) : c.moveTo(p[0] * Z, p[1] * Z))); c.closePath(); c.stroke();
+    c.fillStyle = 'rgba(0,120,255,.35)'; for (let i = 0; i < an.comp.length; i++) if (an.comp[i] && !an.shape[i]) c.fillRect((i % an.w) * Z, ((i / an.w) | 0) * Z, Z, Z);
+    const back = (p) => [(p[0] - L.ox) / L.s + L.bx, (p[1] - L.oy) / L.s + L.by];
+    c.fillStyle = '#000'; L.dots.forEach((d) => { const p = back(d.p); c.beginPath(); c.arc(p[0] * Z, p[1] * Z, 6, 0, 7); c.fill(); });
+    cv.style.cssText = 'display:block;width:' + cv.width + 'px;max-width:none';
+    document.querySelector('.page').prepend(cv);
+  }
+}
+})();
+</script>
+</body>
+</html>
